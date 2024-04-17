@@ -1,19 +1,42 @@
 package service
 
 import (
+	"fmt"
+	"github.com/NikitosnikN/balance-api/internal/adapters/nodepool"
 	"github.com/NikitosnikN/balance-api/internal/app"
 	"github.com/NikitosnikN/balance-api/internal/app/query"
 	"github.com/NikitosnikN/balance-api/internal/config"
+	"github.com/NikitosnikN/balance-api/internal/ports/rest"
+	"github.com/NikitosnikN/balance-api/pkg/linked_list"
+	"log"
+	"net/http"
 )
 
-func NewApplication() *app.Application {
+func NewApplication(pool *nodepool.NodePool) *app.Application {
 	return &app.Application{
 		Queries: app.Queries{
-			FetchBalance: query.FetchBalanceHandler{},
+			FetchBalance: query.NewFetchBalanceHandler(pool.EthGetBalance),
+			IsPoolAlive:  query.NewIsPoolAliveHandler(pool.IsAlive),
 		},
 	}
 }
 
 func RunApplication(cfg *config.Config) error {
-	return nil
+	log.Println("Starting application")
+	nodeList := linked_list.NewLinkedList[nodepool.Node]()
+
+	for _, node := range cfg.Rpcs {
+		nodeList.Insert(*nodepool.NewNode(node.Name, node.Url))
+	}
+
+	pool, err := nodepool.NewNodePool(nodeList, cfg.WorkerInterval)
+
+	if err != nil {
+		return err
+	}
+
+	application := NewApplication(pool)
+	restHandler := rest.Handler(application)
+	log.Println("Running HTTP server on port", cfg.HTTPPort)
+	return http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", cfg.HTTPPort), restHandler)
 }

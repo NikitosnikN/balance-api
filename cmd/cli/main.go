@@ -2,6 +2,7 @@ package main
 
 import (
 	cfg "github.com/NikitosnikN/balance-api/internal/config"
+	"github.com/NikitosnikN/balance-api/internal/service"
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
@@ -28,7 +29,7 @@ func main() {
 				log.Fatal("failed to load config", config)
 			}
 
-			return nil
+			return service.RunApplication(config)
 		},
 	}
 

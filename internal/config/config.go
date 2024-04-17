@@ -18,14 +18,15 @@ type ServerConfig struct {
 }
 
 type RpcConfig struct {
-	Name     string        `yaml:"name"`
-	Url      string        `yaml:"url"`
-	Interval time.Duration `yaml:"interval"`
+	Name string `yaml:"name"`
+	Url  string `yaml:"url"`
 }
 
 type Config struct {
-	Server ServerConfig
-	Rpcs   []RpcConfig
+	HTTPPort       uint          `yaml:"port"`
+	MetricsPort    uint          `yaml:"metricsPort"`
+	WorkerInterval time.Duration `yaml:"workerInterval"`
+	Rpcs           []RpcConfig
 }
 
 func openExampleConfig() (*os.File, error) {
