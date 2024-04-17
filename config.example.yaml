@@ -1,0 +1,11 @@
+port: 8000
+metricsPort: 8001
+workerInterval: 5s
+
+rpcs:
+  - name: providerA
+    url: https://endpoints.omniatech.io/v1/eth/mainnet/public
+  - name: providerB
+    url: https://rpc.ankr.com/eth
+  - name: providerC
+    url: https://eth.rpc.blxrbdn.com
