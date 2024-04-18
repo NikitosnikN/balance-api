@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"github.com/NikitosnikN/balance-api/internal/common"
-	"github.com/NikitosnikN/balance-api/pkg/linked_list"
 	"log"
 	"time"
 )
 
 type NodePool struct {
-	nodes          *linked_list.LinkedList[Node]
+	nodes          *LinkedList
 	workerInterval time.Duration
 }
 
-func NewNodePool(nodes *linked_list.LinkedList[Node], workerInterval time.Duration) (*NodePool, error) {
+func NewNodePool(nodes *LinkedList, workerInterval time.Duration) (*NodePool, error) {
 	if len(nodes.GetElements()) == 0 {
 		return nil, errors.New("nodes is empty")
 	}
@@ -39,6 +38,7 @@ func updateNodeState(node *Node) {
 	blockNumber, err := node.EthGetBlockNumber(ctx)
 
 	if err != nil {
+		log.Printf("Node %s is not alive.\n", node.Name)
 		node.IsAlive = false
 		return
 	}
@@ -46,6 +46,7 @@ func updateNodeState(node *Node) {
 	number, err := common.HexToDecimal(blockNumber)
 
 	if err != nil {
+		log.Printf("Node %s is not alive.\n", node.Name)
 		node.IsAlive = false
 		return
 	}
@@ -62,13 +63,16 @@ func (n *NodePool) runIteration() {
 	}
 
 	for _, node := range nodes {
-		go updateNodeState(&node)
+		go updateNodeState(node)
 	}
 }
 
 func (n *NodePool) runWorker() error {
 	log.Println("Starting node pool worker")
 	ticker := time.NewTicker(n.workerInterval)
+
+	// warming nodes' status
+	go n.runIteration()
 
 	if len(n.nodes.GetElements()) == 0 {
 		return errors.New("node pool is empty")
@@ -87,13 +91,11 @@ func (n *NodePool) runWorker() error {
 }
 
 func (n *NodePool) EthGetBalance(ctx context.Context, address string, blockTag string) (string, error) {
-	el := n.nodes.Next()
+	node := n.nodes.NextAliveNode()
 
-	if el == nil {
+	if node == nil {
 		return "", errors.New("cannot get node")
 	}
-
-	node := el.Data()
 
 	return node.EthGetBalance(ctx, address, blockTag)
 }

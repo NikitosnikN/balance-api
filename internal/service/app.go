@@ -7,7 +7,6 @@ import (
 	"github.com/NikitosnikN/balance-api/internal/app/query"
 	"github.com/NikitosnikN/balance-api/internal/config"
 	"github.com/NikitosnikN/balance-api/internal/ports/rest"
-	"github.com/NikitosnikN/balance-api/pkg/linked_list"
 	"log"
 	"net/http"
 )
@@ -23,10 +22,10 @@ func NewApplication(pool *nodepool.NodePool) *app.Application {
 
 func RunApplication(cfg *config.Config) error {
 	log.Println("Starting application")
-	nodeList := linked_list.NewLinkedList[nodepool.Node]()
+	nodeList := nodepool.NewLinkedList()
 
 	for _, node := range cfg.Rpcs {
-		nodeList.Insert(*nodepool.NewNode(node.Name, node.Url))
+		nodeList.Insert(nodepool.NewNode(node.Name, node.Url))
 	}
 
 	pool, err := nodepool.NewNodePool(nodeList, cfg.WorkerInterval)

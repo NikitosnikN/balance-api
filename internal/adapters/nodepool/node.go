@@ -28,7 +28,7 @@ func NewNode(name string, url string) *Node {
 	return &Node{
 		Name:        name,
 		Url:         url,
-		IsAlive:     true,
+		IsAlive:     false,
 		LatestBlock: 0,
 	}
 }
