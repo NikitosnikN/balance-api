@@ -5,6 +5,7 @@ import (
 	"github.com/NikitosnikN/balance-api/internal/adapters/nodepool"
 	"github.com/NikitosnikN/balance-api/internal/app"
 	"github.com/NikitosnikN/balance-api/internal/app/query"
+	"github.com/NikitosnikN/balance-api/internal/common/metrics"
 	"github.com/NikitosnikN/balance-api/internal/config"
 	"github.com/NikitosnikN/balance-api/internal/ports/rest"
 	"log"
@@ -28,7 +29,9 @@ func RunApplication(cfg *config.Config) error {
 		nodeList.Insert(nodepool.NewNode(node.Name, node.Url))
 	}
 
-	pool, err := nodepool.NewNodePool(nodeList, cfg.WorkerInterval)
+	_, metricsComponent := metrics.NewMetrics()
+
+	pool, err := nodepool.NewNodePool(nodeList, cfg.WorkerInterval, metricsComponent)
 
 	if err != nil {
 		return err

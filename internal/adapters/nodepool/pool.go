@@ -4,22 +4,30 @@ import (
 	"context"
 	"errors"
 	"github.com/NikitosnikN/balance-api/internal/common"
+	"github.com/prometheus/client_golang/prometheus"
 	"log"
 	"time"
 )
 
+type Metrics interface {
+	NodePoolBlockHeight() *prometheus.GaugeVec
+	NodePoolLiveness() *prometheus.GaugeVec
+}
+
 type NodePool struct {
 	nodes          *LinkedList
 	workerInterval time.Duration
+	metrics        Metrics
 }
 
-func NewNodePool(nodes *LinkedList, workerInterval time.Duration) (*NodePool, error) {
+func NewNodePool(nodes *LinkedList, workerInterval time.Duration, metrics Metrics) (*NodePool, error) {
 	if len(nodes.GetElements()) == 0 {
 		return nil, errors.New("nodes is empty")
 	}
 	pool := NodePool{
 		nodes:          nodes,
 		workerInterval: workerInterval,
+		metrics:        metrics,
 	}
 
 	err := pool.runWorker()
@@ -31,7 +39,7 @@ func NewNodePool(nodes *LinkedList, workerInterval time.Duration) (*NodePool, er
 	return &pool, nil
 }
 
-func updateNodeState(node *Node) {
+func updateNodeState(node *Node, metrics Metrics) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 
@@ -40,6 +48,7 @@ func updateNodeState(node *Node) {
 	if err != nil {
 		log.Printf("Node %s is not alive.\n", node.Name)
 		node.IsAlive = false
+		metrics.NodePoolLiveness().WithLabelValues(node.Name).Set(0)
 		return
 	}
 
@@ -48,11 +57,15 @@ func updateNodeState(node *Node) {
 	if err != nil {
 		log.Printf("Node %s is not alive.\n", node.Name)
 		node.IsAlive = false
+		metrics.NodePoolLiveness().WithLabelValues(node.Name).Set(0)
 		return
 	}
 
 	node.LatestBlock = uint(number)
 	node.IsAlive = true
+
+	metrics.NodePoolBlockHeight().WithLabelValues(node.Name).Set(float64(number))
+	metrics.NodePoolLiveness().WithLabelValues(node.Name).Set(1)
 }
 
 func (n *NodePool) runIteration() {
@@ -63,7 +76,7 @@ func (n *NodePool) runIteration() {
 	}
 
 	for _, node := range nodes {
-		go updateNodeState(node)
+		go updateNodeState(node, n.metrics)
 	}
 }
 

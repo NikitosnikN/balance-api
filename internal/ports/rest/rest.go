@@ -3,6 +3,8 @@ package rest
 import (
 	"github.com/NikitosnikN/balance-api/internal/app"
 	"github.com/NikitosnikN/balance-api/internal/app/query"
+	"github.com/NikitosnikN/balance-api/internal/common/metrics"
+	middleware2 "github.com/NikitosnikN/balance-api/pkg/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -11,10 +13,14 @@ import (
 )
 
 func Handler(app *app.Application) http.Handler {
+	// metrics
+	mHandler, mComponent := metrics.NewMetrics()
+
 	router := chi.NewRouter()
 	// Middlewares
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Logger)
+	router.Use(middleware2.MetricsMiddleware(mComponent))
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "OPTIONS", "HEAD"},
@@ -24,6 +30,7 @@ func Handler(app *app.Application) http.Handler {
 	router.Get(`/ht`, HealthcheckHandler(app.Queries.IsPoolAlive))
 	router.Get(`/`, GetBalanceHandler(app.Queries.FetchBalance))
 	router.Get(`/balance`, GetBalanceHandler(app.Queries.FetchBalance))
+	router.Get(`/metrics`, mHandler)
 	return router
 }
 
