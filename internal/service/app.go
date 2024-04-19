@@ -23,10 +23,10 @@ func NewApplication(pool *nodepool.NodePool) *app.Application {
 
 func RunApplication(cfg *config.Config) error {
 	log.Println("Starting application")
-	nodeList := nodepool.NewLinkedList()
+	var nodeList []*nodepool.Node
 
 	for _, node := range cfg.Rpcs {
-		nodeList.Insert(nodepool.NewNode(node.Name, node.Url))
+		nodeList = append(nodeList, nodepool.NewNode(node.Name, node.Url))
 	}
 
 	_, metricsComponent := metrics.NewMetrics()

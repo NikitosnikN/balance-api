@@ -6,6 +6,7 @@ import (
 	"github.com/NikitosnikN/balance-api/internal/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -15,14 +16,14 @@ type Metrics interface {
 }
 
 type NodePool struct {
-	nodes          *LinkedList
+	nodes          []*Node
 	workerInterval time.Duration
 	metrics        Metrics
 }
 
-func NewNodePool(nodes *LinkedList, workerInterval time.Duration, metrics Metrics) (*NodePool, error) {
-	if len(nodes.GetElements()) == 0 {
-		return nil, errors.New("nodes is empty")
+func NewNodePool(nodes []*Node, workerInterval time.Duration, metrics Metrics) (*NodePool, error) {
+	if len(nodes) == 0 {
+		return nil, errors.New("node list is empty")
 	}
 	pool := NodePool{
 		nodes:          nodes,
@@ -69,13 +70,11 @@ func updateNodeState(node *Node, metrics Metrics) {
 }
 
 func (n *NodePool) runIteration() {
-	nodes := n.nodes.GetElements()
-
-	if len(nodes) == 0 {
+	if len(n.nodes) == 0 {
 		return
 	}
 
-	for _, node := range nodes {
+	for _, node := range n.nodes {
 		go updateNodeState(node, n.metrics)
 	}
 }
@@ -87,7 +86,7 @@ func (n *NodePool) runWorker() error {
 	// warming nodes' status
 	go n.runIteration()
 
-	if len(n.nodes.GetElements()) == 0 {
+	if len(n.nodes) == 0 {
 		return errors.New("node pool is empty")
 	}
 
@@ -103,26 +102,72 @@ func (n *NodePool) runWorker() error {
 	return nil
 }
 
-func (n *NodePool) EthGetBalance(ctx context.Context, address string, blockTag string) (string, error) {
-	node := n.nodes.NextAliveNode()
+func (n *NodePool) GetAliveNodes() []*Node {
+	var nodes []*Node
 
-	if node == nil {
-		return "", errors.New("cannot get node")
-	}
-
-	return node.EthGetBalance(ctx, address, blockTag)
-}
-
-func (n *NodePool) IsAlive() (bool, error) {
-	nodes := n.nodes.GetElements()
-	isAlive := false
-
-	for _, node := range nodes {
+	for i, node := range n.nodes {
 		if node.IsAlive {
-			isAlive = true
-			break
+			nodes = append(nodes, n.nodes[i])
 		}
 	}
 
-	return isAlive, nil
+	return nodes
+}
+
+func (n *NodePool) EthGetBalance(ctx context.Context, address string, blockTag string) (string, error) {
+	nodes := n.GetAliveNodes()
+
+	if len(nodes) == 0 {
+		return "", errors.New("no alive nodes in node pool")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	wg := sync.WaitGroup{}
+	resultsCh := make(chan string)
+	results := map[string]int{}
+
+	fetchFunc := func(wg *sync.WaitGroup, node *Node, resultsCh chan string) {
+		defer wg.Done()
+		result, err := node.EthGetBalance(ctx, address, blockTag)
+		if err == nil && result != "" {
+			resultsCh <- result
+		}
+	}
+
+	// listen channel, update results
+	go func() {
+		for {
+			select {
+			case result := <-resultsCh:
+				results[result]++
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// fire tasks
+	for _, node := range nodes {
+		wg.Add(1)
+		go fetchFunc(&wg, node, resultsCh)
+	}
+
+	// wait for execution, close channel
+	wg.Wait()
+	close(resultsCh)
+
+	// get true balance from results
+	result, err := determineTrueBalance(results)
+
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+func (n *NodePool) IsAlive() (bool, error) {
+	return len(n.GetAliveNodes()) > 0, nil
 }

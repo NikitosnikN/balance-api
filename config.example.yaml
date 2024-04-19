@@ -8,3 +8,7 @@ rpcs:
     url: https://rpc.ankr.com/eth
   - name: blxrbdn
     url: https://eth.rpc.blxrbdn.com
+  - name: 1rpc
+    url: https://1rpc.io/eth
+  - name: cloudflare
+    url: https://cloudflare-eth.com
