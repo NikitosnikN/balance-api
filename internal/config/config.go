@@ -24,7 +24,6 @@ type RpcConfig struct {
 
 type Config struct {
 	HTTPPort       uint          `yaml:"port"`
-	MetricsPort    uint          `yaml:"metricsPort"`
 	WorkerInterval time.Duration `yaml:"workerInterval"`
 	Rpcs           []RpcConfig
 }

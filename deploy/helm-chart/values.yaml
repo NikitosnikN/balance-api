@@ -1,0 +1,93 @@
+replicaCount: 1
+
+env:
+  port: 8000
+  workerInterval: 5s
+
+  rpcs:
+    - name: omniatech
+      url: https://endpoints.omniatech.io/v1/eth/mainnet/public
+    - name: ankr
+      url: https://rpc.ankr.com/eth
+    - name: blxrbdn
+      url: https://eth.rpc.blxrbdn.com
+
+image:
+  repository: nikitosnik/tmp
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: [ ]
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: { }
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: { }
+podLabels: { }
+
+podSecurityContext: { }
+# fsGroup: 2000
+
+securityContext: { }
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations: { }
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: balance-api.nikitayugov.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: any-nikitayugov-com-tls
+      hosts: [ ]
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+readinessProbe:
+  httpGet:
+    path: /ht
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+
+nodeSelector: { }
+
+tolerations: [ ]
+
+affinity: { }
